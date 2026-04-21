@@ -606,7 +606,7 @@ function buildArchitectureTechStackView(baseParsed: ParsedData): ParsedData {
       id: section.id, type: 'custom', position: pos, draggable: false, selectable: true,
       style: { width: sectionWidth, height: section.height, zIndex: 0 },
       data: { label: section.label, color: section.color, colorName: 'blue', icon: section.icon,
-               subLabel: 'Technology stack overview', variant: 'section' },
+               subLabel: 'Tech stack', variant: 'section' },
     });
     section.members.forEach((member, i) => {
       nodes.push({
@@ -622,7 +622,7 @@ function buildArchitectureTechStackView(baseParsed: ParsedData): ParsedData {
     id: cloudCfg.id, type: 'custom', position: { x: originX, y: rowYs[2] }, draggable: false, selectable: true,
     style: { width: fullWidth, height: cloudH, zIndex: 0 },
     data: { label: cloudCfg.label, color: cloudCfg.color, colorName: 'blue', icon: cloudCfg.icon,
-             subLabel: 'Cloud infrastructure layer', variant: 'section' },
+             subLabel: 'Cloud infra', variant: 'section' },
   });
 
   nodes.push({
@@ -631,7 +631,7 @@ function buildArchitectureTechStackView(baseParsed: ParsedData): ParsedData {
     draggable: false, selectable: true,
     style: { width: subSectionWidth, height: dbSubH, zIndex: 1 },
     data: { label: dbCfg.label, color: dbCfg.color, colorName: 'blue', icon: dbCfg.icon,
-             subLabel: 'Persistent data storage', variant: 'section' },
+             subLabel: 'Data storage', variant: 'section' },
   });
 
   dbMembers.forEach((m, i) => {
@@ -760,7 +760,7 @@ function buildSystemArchitectureView(baseParsed: ParsedData): ParsedData {
       id: section.id, type: 'custom', position: pos, draggable: false, selectable: true,
       style: { width: sectionWidth, height: section.height, zIndex: 0 },
       data: { label: section.label, color: section.color, colorName: 'blue', icon: section.icon,
-               subLabel: 'System layer overview', variant: 'section' },
+               subLabel: 'System layers', variant: 'section' },
     });
     section.members.forEach((member, i) => {
       nodes.push({
@@ -776,7 +776,7 @@ function buildSystemArchitectureView(baseParsed: ParsedData): ParsedData {
     id: cloudCfg.id, type: 'custom', position: { x: originX, y: rowYs[2] }, draggable: false, selectable: true,
     style: { width: fullWidth, height: cloudH, zIndex: 0 },
     data: { label: cloudCfg.label, color: cloudCfg.color, colorName: 'blue', icon: cloudCfg.icon,
-             subLabel: 'Cloud & managed infrastructure', variant: 'section' },
+             subLabel: 'Cloud infra', variant: 'section' },
   });
 
   nodes.push({
@@ -785,7 +785,7 @@ function buildSystemArchitectureView(baseParsed: ParsedData): ParsedData {
     draggable: false, selectable: true,
     style: { width: subSectionWidth, height: dataSubH, zIndex: 1 },
     data: { label: dataCfg.label, color: dataCfg.color, colorName: 'blue', icon: dataCfg.icon,
-             subLabel: 'Time-series & persistent storage', variant: 'section' },
+             subLabel: 'Time-series & storage', variant: 'section' },
   });
 
   dataMembers.forEach((m, i) => {

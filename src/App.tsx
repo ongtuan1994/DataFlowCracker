@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Node, Edge } from '@xyflow/react';
-import { FlowCanvas } from './components/flow/FlowCanvas';
+import { FlowCanvas, FlowCanvasHandle } from './components/flow/FlowCanvas';
+import { CustomNodeData } from './components/flow/CustomNode';
 import { BuilderPanel } from './components/BuilderPanel';
 import { parseMarkdown, generateMarkdown, Scenario, VIEW_MODES, ViewMode } from './lib/markdownParser';
-import { Play, Upload, FileText, LayoutGrid, RotateCcw, FolderOpen, Network, ChevronDown, ChevronUp, Sparkles, Copy, Check } from 'lucide-react';
+import { Play, Upload, FileText, LayoutGrid, RotateCcw, FolderOpen, Network, ChevronDown, ChevronUp, Sparkles, Copy, Check, BookMarked, ImageDown } from 'lucide-react';
+import { DiagramsPanel } from './components/DiagramsPanel';
 
 const initialMarkdown = `# Nodes
 - [mobile] Mobile App (green, Smartphone)
@@ -31,8 +33,9 @@ const initialParsed = parseMarkdown(initialMarkdown, defaultViewMode);
 
 export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const flowRef = useRef<FlowCanvasHandle>(null);
 
-  const [nodes, setNodes] = useState<Node[]>(initialParsed.nodes);
+  const [nodes, setNodes] = useState<Node<CustomNodeData>[]>(initialParsed.nodes);
   const [edges, setEdges] = useState<Edge[]>(initialParsed.edges);
   const [scenarios, setScenarios] = useState<Scenario[]>(initialParsed.scenarios);
   const [activeScenario, setActiveScenario] = useState<Scenario | null>(null);
@@ -46,6 +49,17 @@ export default function App() {
   const [promptCopied, setPromptCopied] = useState(false);
   const [showTopPanel, setShowTopPanel] = useState(true);
   const [showFlowsPanel, setShowFlowsPanel] = useState(true);
+  const [showDiagramsPanel, setShowDiagramsPanel] = useState(false);
+
+  // Keep all overlays mutually exclusive
+  const openPrompt = () => { setShowPromptPanel(true); setRightPanel('none'); };
+  const openRightPanel = (panel: 'markdown' | 'builder') => { setRightPanel(panel); setShowPromptPanel(false); };
+  const handleExportImage = () => {
+    const name = documentName.replace(/\.md$/i, '') || 'diagram';
+    flowRef.current?.exportPng(`${name}.png`);
+  };
+  const [activeDiagramId, setActiveDiagramId] = useState<string | null>(null);
+  const [activeDiagramName, setActiveDiagramName] = useState('');
 
   const applyParsedContent = (content: string, mode: ViewMode = viewMode) => {
     const parsed = parseMarkdown(content, mode);
@@ -98,7 +112,7 @@ export default function App() {
     };
     const color = colorMap[colorName.toLowerCase()] || '#000000';
 
-    const newNode: Node = {
+    const newNode: Node<CustomNodeData> = {
       id,
       type: 'custom',
       position: { x: 0, y: 0 },
@@ -143,7 +157,7 @@ export default function App() {
 
   const generatedPrompt = `You are a software architecture documentation assistant.
 
-Analyze the source code provided and generate a single Markdown (.md) file describing its architecture. The file will be loaded into the "Data Flow Cracker" visualization app which renders the SAME file in 5 different view modes automatically. Your goal is to write node labels that trigger the correct visual rendering in every mode.
+Analyze the source code provided and generate a single Markdown (.md) file describing the system architecture. The file will be loaded into "Data Flow Cracker" — a visualization app that renders the SAME file across 5 view modes simultaneously. Write node labels so every mode renders correctly.
 
 ════════════════════════════════════════
 FILE FORMAT
@@ -162,155 +176,160 @@ FILE FORMAT
 FIELD RULES
 ════════════════════════════════════════
 
-Node IDs    : lowercase, hyphens only, no spaces  (e.g. order-service)
-Colors      : green | blue | purple | orange | red | gray
-Icons       : Smartphone, Globe, Code, Server, Database, MessageSquare, User,
-              Cloud, Lock, Settings, BarChart, Wifi, Cpu, Activity, Store, Layers
-Edge label  : text after the colon — use protocol names or function call notation
-Scenarios   : animated path chains used for demo flows
+Node IDs  : lowercase + hyphens only, no spaces  (e.g. order-service)
+Colors    : green | blue | purple | orange | red | gray
+Icons     : Smartphone, Globe, Code, Server, Database, MessageSquare, User,
+            Cloud, Lock, Settings, BarChart, Wifi, Cpu, Activity, Store, Layers
+Edge label: use hybrid format → "HTTP POST /orders | validate(dto)"
+            works for both Mode 3 (protocol) and Mode 5 (function call)
+Scenarios : comma-separated nodeId chains used as animated demo flows
+
+Color guide (recommended)
+  green  = client / entry point      blue   = service / network
+  purple = auth / AI                 orange = logic / processing
+  red    = data / payment            gray   = infrastructure / ORM
 
 ════════════════════════════════════════
-HOW EACH VIEW MODE READS YOUR LABELS
+VIEW MODE KEYWORD RULES
 ════════════════════════════════════════
 
-The app has 5 modes. Each mode re-interprets the same nodes and edges differently.
-Write your labels so ALL of the following keyword rules are satisfied at once:
+The app has 5 modes. Each re-interprets the same nodes differently.
+Write labels so ALL keyword rules below are satisfied at once.
 
 ──────────────────────────────────────
 MODE 1 — System Architecture
-Groups nodes into 6 sections: Hardware | Network | Software | AI/ML | Cloud (+ nested Data)
+Layout: 4 top sections (Hardware | Network | Software | AI/ML) in a 2×2 grid
+        + full-width Cloud section with nested Data section inside it
 ──────────────────────────────────────
 Priority order (first match wins):
 
-  • Hardware  → sensor, iot, actuator, controller, camera, gps, lidar, radar,
-                ecu, obd, motor, battery, charger, hardware, device, embedded,
-                microcontroller, arduino, raspberry, gpio
-  • Network   → mqtt, gateway, router, broker, bus, socket, vpn, firewall,
-                load balancer, queue, message, network, wifi, zigbee, lora,
-                can bus, protocol, proxy
-  • AI/ML     → openai, gpt, llm, ai, machine learning, ml, tensorflow,
-                pytorch, neural, inference, prediction, embedding,
-                mistral, claude, gemini
-  • Cloud     → cloud, aws, azure, gcp, lambda, ec2, cloudfront, heroku,
-                vercel, netlify, iot hub, iot core, sagemaker
-  • Data      → database, postgres, mysql, mongo, redis, influx, cassandra,
-                warehouse, timeseries, analytics, grafana, dashboard, filesystem
-                ⟶ Data section appears NESTED inside the Cloud frame visually
-  • Software  → everything else (api, service, backend, app, auth, etc.)
+  Hardware → sensor, iot, actuator, controller, camera, gps, lidar, radar,
+             ecu, obd, motor, battery, charger, hardware, device, embedded,
+             microcontroller, arduino, raspberry, gpio
+  Network  → mqtt, gateway, router, broker, bus, socket, vpn, firewall,
+             load balancer, queue, message, network, wifi, zigbee, lora,
+             can bus, protocol, proxy
+  AI/ML    → openai, gpt, llm, ai, machine learning, ml, tensorflow, pytorch,
+             neural, inference, prediction, embedding, mistral, claude, gemini
+  Cloud    → cloud, aws, azure, gcp, lambda, ec2, cloudfront, heroku, vercel,
+             netlify, iot hub, iot core, sagemaker
+  Data     → database, postgres, mysql, mongo, redis, influx, cassandra,
+             warehouse, timeseries, analytics, grafana, dashboard, filesystem
+             ⟶ rendered NESTED inside the Cloud section
+  Software → everything else (api, service, backend, app, auth, etc.)
 
 ──────────────────────────────────────
 MODE 2 — Software Architecture with Tech Stack
-Groups nodes into 6 sections: Frontend | Backend | CI/CD | AI/ML | Cloud (+ nested Database)
+Layout: 4 top sections (Frontend | Backend | CI/CD | AI/ML) in a 2×2 grid
+        + full-width Cloud section with nested Database section inside it
 ──────────────────────────────────────
 Priority order (first match wins):
 
-  • AI/ML     → openai, gpt, llm, ai, machine learning, ml, tensorflow,
-                pytorch, neural, inference, prediction, embedding,
-                mistral, claude, gemini
-  • Cloud     → cloud, aws, azure, gcp, lambda, ec2, cloudfront, heroku,
-                vercel, netlify, sagemaker, ecs, eks, fargate, cloudwatch
-  • Database  → database, postgres, mysql, mongo, redis, prisma, orm,
-                cassandra, cockroach, warehouse, storage
-                ⟶ Database section appears NESTED inside the Cloud frame visually
-  • CI/CD     → ci/cd, devops, jenkins, spinnaker, pagerduty, gradle,
-                github actions, gitlab, deployment, release, pipeline
-  • Frontend  → frontend, mobile, web, react, swift, kotlin, ios, android,
-                browser, ui, client, portal
-  • Backend   → everything else (api, service, server, gateway, auth, etc.)
+  AI/ML    → openai, gpt, llm, ai, machine learning, ml, tensorflow, pytorch,
+             neural, inference, prediction, embedding, mistral, claude, gemini
+  Cloud    → cloud, aws, azure, gcp, lambda, ec2, cloudfront, heroku, vercel,
+             netlify, sagemaker, ecs, eks, fargate, cloudwatch
+  Database → database, postgres, mysql, mongo, redis, prisma, orm, cassandra,
+             cockroach, warehouse, storage
+             ⟶ rendered NESTED inside the Cloud section
+  CI/CD    → ci/cd, devops, jenkins, spinnaker, pagerduty, gradle,
+             github actions, gitlab, deployment, release, pipeline
+  Frontend → frontend, mobile, web, react, swift, kotlin, ios, android,
+             browser, ui, client, portal
+  Backend  → everything else (api, service, server, gateway, auth, etc.)
 
 ──────────────────────────────────────
 MODE 3 — Overview Function with Protocol
-Shows the big-picture data flow with protocol labels on each edge.
+Displays the big-picture data flow; edge labels become protocol badges.
 ──────────────────────────────────────
-Edge labels MUST be protocol or integration names, for example:
-  HTTP POST /orders | MQTT publish | gRPC | WebSocket | SQL SELECT | REST GET
-  JWT validate | Kafka topic | S3 PUT | GraphQL query | TCP/IP | CoAP
+Edge labels should be recognizable protocol / integration names:
+  HTTP POST /orders  |  MQTT publish  |  gRPC  |  WebSocket  |  SQL SELECT
+  JWT validate  |  Kafka topic  |  S3 PUT  |  GraphQL query  |  TCP/IP  |  CoAP
 
 ──────────────────────────────────────
 MODE 4 — Data & Schema to Database
-Renders each node as a schema table with typed fields (PK / FK).
-Schema template is chosen by the first matching keyword in the label:
+Each node renders as a typed schema table. Template chosen by first match:
 ──────────────────────────────────────
-  • user / member / account / customer / profile / staff
-      → id PK, email, name, role, created_at
-  • order / booking / reservation / purchase
-      → id PK, user_id FK, items, total, status, created_at
-  • product / item / inventory / stock / catalogue
-      → id PK, name, price, qty, category_id FK
-  • payment / invoice / billing / charge / receipt
-      → id PK, order_id FK, amount, method, paid_at
-  • session / token / auth / credential / jwt / login
-      → token PK, user_id FK, expires_at, ip_address
-  • notification / alert / message / email / sms / push
-      → id PK, user_id FK, type, content, read
-  • log / event / audit / activity / history / track
-      → id PK, type, payload, user_id FK, timestamp
-  • report / analytics / metric / stat / dashboard
-      → id PK, name, value, period, recorded_at
-  • orm / prisma / sequelize / typeorm / mongoose
-      → model, query, relations, result: Promise<T>
-  • api / service / server / backend / gateway / handler
-      → method (HTTP verb), path, body (JSON), auth (Bearer)
-  • mobile / frontend / web / portal / browser / client / app
-      → user_id, payload (object), device_id, timestamp (ISO 8601)
+  user / member / account / customer / profile / staff
+      → id PK · email · name · role · created_at
+  order / booking / reservation / purchase
+      → id PK · user_id FK · items · total · status · created_at
+  product / item / inventory / stock / catalogue
+      → id PK · name · price · qty · category_id FK
+  payment / invoice / billing / charge / receipt
+      → id PK · order_id FK · amount · method · paid_at
+  session / token / auth / credential / jwt / login
+      → token PK · user_id FK · expires_at · ip_address
+  notification / alert / message / email / sms / push
+      → id PK · user_id FK · type · content · read
+  log / event / audit / activity / history / track
+      → id PK · type · payload · user_id FK · timestamp
+  report / analytics / metric / stat / dashboard
+      → id PK · name · value · period · recorded_at
+  orm / prisma / sequelize / typeorm / mongoose
+      → model · query · relations · result: Promise<T>
+  api / service / server / backend / gateway / handler
+      → method (HTTP verb) · path · body (JSON) · auth (Bearer)
+  mobile / frontend / web / portal / browser / client / app
+      → user_id · payload (object) · device_id · timestamp (ISO 8601)
 
-Edge labels for this mode should describe the DB operation:
-  INSERT user{id,email,role} | SELECT orders WHERE user_id | UPDATE inventory SET qty
-  DELETE session WHERE expires < now | JOIN orders ON user_id
+Edge labels for Mode 4 → DB operation syntax:
+  INSERT user{id,email,role}  |  SELECT orders WHERE user_id
+  UPDATE inventory SET qty    |  DELETE session WHERE expires < now
 
 ──────────────────────────────────────
 MODE 5 — Software Design / Logic (Flowchart)
-Renders each node as a flowchart shape. Shape is inferred from the label:
+Each node renders as a flowchart shape inferred from the label:
 ──────────────────────────────────────
-  • START (pill)     → user, customer, mobile, client, browser, frontend, portal, app
-                       — but NOT if label also has: service, handler, api, gateway, backend
-  • END   (pill)     → response, result, receipt, success, complete, output, done, display
-  • DECISION (◇)    → validate, check, guard, verify, authorize, isvalid
-  • IO (data block)  → database, storage, orm, prisma, repository, repo,
+  START (pill)    → user, customer, mobile, client, browser, frontend, portal, app
+                    — NOT if label also contains: service, handler, api, gateway, backend
+  END   (pill)    → response, result, receipt, success, complete, output, done, display
+  DECISION (◇)   → validate, check, guard, verify, authorize, isvalid
+  IO (parallelogram) → database, storage, orm, prisma, repository, repo,
                        postgres, mysql, mongo, redis, influx, cassandra
-  • PROCESS (default)→ everything else (service, handler, controller, etc.)
+  PROCESS (rect)  → everything else
 
-Edge labels for this mode should look like function call notation:
-  validate(dto) | INSERT(dto) | authenticate(creds) | HTTP POST(body)
-  ✓ valid | → Entity[] | notify(event) | map(raw)
+Edge labels for Mode 5 → function call notation:
+  validate(dto)  |  INSERT(dto)  |  authenticate(creds)  |  HTTP POST(body)
+  ✓ valid  |  → Entity[]  |  notify(event)  |  map(raw)
 
 ════════════════════════════════════════
-COMPLETE EXAMPLE (covers all 6 sections in all 5 modes)
+COMPLETE EXAMPLE
 ════════════════════════════════════════
 
 \`\`\`
 # Nodes
-- [mobile-client] Mobile Client App (green, Smartphone)
-- [api-gateway] API Gateway Service (blue, Server)
-- [auth-service] Auth Validate Service (purple, Lock)
-- [order-service] Order Handler Service (orange, Store)
-- [inventory-check] Inventory Check Guard (orange, BarChart)
-- [payment-service] Payment Billing Invoice Service (red, Activity)
-- [prisma-orm] Prisma ORM Repository (gray, Database)
-- [postgres-db] PostgreSQL Database (red, Database)
-- [mqtt-broker] MQTT Message Broker (blue, Wifi)
-- [iot-sensor] IoT Temperature Sensor (orange, Cpu)
+- [mobile-client]       Mobile Client App (green, Smartphone)
+- [api-gateway]         API Gateway Service (blue, Server)
+- [auth-service]        Auth Validate Service (purple, Lock)
+- [order-service]       Order Handler Service (orange, Store)
+- [inventory-check]     Inventory Check Guard (orange, BarChart)
+- [payment-service]     Payment Billing Invoice Service (red, Activity)
+- [prisma-orm]          Prisma ORM Repository (gray, Database)
+- [postgres-db]         PostgreSQL Database (red, Database)
+- [mqtt-broker]         MQTT Message Broker (blue, Wifi)
+- [iot-sensor]          IoT Temperature Sensor (orange, Cpu)
 - [notification-service] Notification Alert Service (blue, MessageSquare)
-- [openai-service] OpenAI GPT Inference Service (purple, Layers)
-- [aws-lambda] AWS Lambda Cloud Function (blue, Cloud)
-- [response-result] Response Result Success (green, Activity)
+- [openai-service]      OpenAI GPT Inference Service (purple, Layers)
+- [aws-lambda]          AWS Lambda Cloud Function (blue, Cloud)
+- [response-result]     Response Result Success (green, Activity)
 
 # Edges
-- mobile-client -> api-gateway : HTTP POST /orders
-- api-gateway -> auth-service : JWT validate
-- auth-service -> order-service : ✓ valid
-- order-service -> inventory-check : validate(qty)
-- inventory-check -> payment-service : ✓ available
-- payment-service -> prisma-orm : INSERT payment{id,order_id,amount}
-- prisma-orm -> postgres-db : SQL INSERT
-- postgres-db -> prisma-orm : → Entity
-- prisma-orm -> order-service : → Order
-- order-service -> notification-service : notify(event)
-- notification-service -> mqtt-broker : MQTT publish
-- mqtt-broker -> iot-sensor : CoAP SET
-- order-service -> openai-service : HTTP POST /v1/chat | predict(context)
-- order-service -> aws-lambda : S3 PUT receipt | invoke(payload)
-- order-service -> response-result : HTTP 200 response
+- mobile-client       -> api-gateway         : HTTP POST /orders | call(request)
+- api-gateway         -> auth-service        : JWT validate | authenticate(token)
+- auth-service        -> order-service       : ✓ valid | authorize(userId)
+- order-service       -> inventory-check     : HTTP GET /stock | validate(qty)
+- inventory-check     -> payment-service     : ✓ available | charge(orderDto)
+- payment-service     -> prisma-orm          : INSERT payment{id,order_id,amount} | save(payment)
+- prisma-orm          -> postgres-db         : SQL INSERT | execute(query)
+- postgres-db         -> prisma-orm          : → Entity | return(row)
+- prisma-orm          -> order-service       : → Order | resolve(entity)
+- order-service       -> notification-service: notify(event) | MQTT publish
+- notification-service-> mqtt-broker         : MQTT publish | emit(event)
+- mqtt-broker         -> iot-sensor          : CoAP SET | trigger(cmd)
+- order-service       -> openai-service      : HTTP POST /v1/chat | predict(context)
+- order-service       -> aws-lambda          : S3 PUT receipt | invoke(payload)
+- order-service       -> response-result     : HTTP 200 OK | return(response)
 
 # Scenarios
 - Happy order flow: mobile-client -> api-gateway -> auth-service -> order-service -> payment-service -> prisma-orm -> postgres-db -> response-result
@@ -323,16 +342,20 @@ COMPLETE EXAMPLE (covers all 6 sections in all 5 modes)
 YOUR TASK
 ════════════════════════════════════════
 
-Analyze the source code below and generate a complete .md file in the format above.
+Analyze the source code below and generate a complete .md file using the format above.
 
 Requirements:
-1. Include 12–20 nodes covering all system layers — aim to have at least 1 node per section in Mode 1 & Mode 2 (Hardware/IoT, Network/broker, AI/ML, Cloud/serverless, Database/storage, and core services)
-2. Use labels that satisfy the keyword rules for all 5 modes simultaneously
-3. Edge labels should work for BOTH protocol (Mode 3) and function call (Mode 5) — use hybrid format like "HTTP POST /create | validate(dto)"
-4. Write 3–5 scenarios covering the main success flow, an AI/ML integration flow, an IoT or notification path, and at least one error/edge-case path
-5. Assign meaningful colors: green=client/entry, blue=service/network, purple=auth/AI, orange=logic/processing, red=data/payment, gray=infrastructure
+1. 12–20 nodes covering all layers — at least 1 node per section for Mode 1 & 2
+   (Hardware/IoT · Network/broker · AI/ML · Cloud · Database · core services)
+2. Labels must satisfy keyword rules for all 5 modes simultaneously
+3. Edge labels use hybrid format: "HTTP VERB /path | functionCall(param)"
+4. 3–5 scenarios: main success flow, AI/ML path, IoT/notification path, error path
+5. Colors follow the guide: green=entry, blue=service/network, purple=auth/AI,
+   orange=logic, red=data/payment, gray=infrastructure
 
 [PASTE YOUR SOURCE CODE HERE]`;
+
+
 
   const handleCopyPrompt = () => {
     navigator.clipboard.writeText(generatedPrompt);
@@ -362,21 +385,35 @@ Requirements:
             <input ref={fileInputRef} type="file" accept=".md" className="hidden" onChange={handleFileUpload} />
           </label>
           <button
-            onClick={() => setRightPanel(rightPanel === 'builder' ? 'none' : 'builder')}
+            onClick={() => { rightPanel === 'builder' ? setRightPanel('none') : openRightPanel('builder'); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${rightPanel === 'builder' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
           >
             <LayoutGrid size={16} />
             Visual Builder
           </button>
           <button
-            onClick={() => setRightPanel(rightPanel === 'markdown' ? 'none' : 'markdown')}
+            onClick={() => { rightPanel === 'markdown' ? setRightPanel('none') : openRightPanel('markdown'); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${rightPanel === 'markdown' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
           >
             <FileText size={16} />
             Edit Markdown
           </button>
           <button
-            onClick={() => setShowPromptPanel((v) => !v)}
+            onClick={handleExportImage}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm bg-gray-100 text-gray-700 hover:bg-gray-200"
+          >
+            <ImageDown size={16} />
+            Export Image
+          </button>
+          <button
+            onClick={() => setShowDiagramsPanel((v) => !v)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${showDiagramsPanel ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+          >
+            <BookMarked size={16} />
+            My Diagrams
+          </button>
+          <button
+            onClick={() => { showPromptPanel ? setShowPromptPanel(false) : openPrompt(); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${showPromptPanel ? 'bg-violet-600 text-white' : 'bg-violet-50 text-violet-700 hover:bg-violet-100'}`}
           >
             <Sparkles size={16} />
@@ -530,11 +567,12 @@ Requirements:
 
           <div className="flex-1 min-h-0">
             <FlowCanvas
+              ref={flowRef}
               initialNodes={nodes}
               initialEdges={edges}
               activeScenario={activeScenario}
               animationSpeed={animationSpeed}
-              onNodesChange={setNodes}
+              onNodesChange={(ns) => setNodes(ns as Node<CustomNodeData>[])}
               onEdgesChange={setEdges}
             />
           </div>
@@ -598,6 +636,30 @@ Requirements:
           </div>
         </main>
       </div>
+
+      {showDiagramsPanel && (
+        <DiagramsPanel
+          currentName={activeDiagramName || documentName.replace(/\.md$/, '')}
+          currentContent={markdownInput}
+          currentViewMode={viewMode}
+          activeDiagramId={activeDiagramId}
+          onLoad={(id, name, content, mode) => {
+            setActiveDiagramId(id);
+            setActiveDiagramName(name);
+            setDocumentName(name + '.md');
+            setMarkdownInput(content);
+            setViewMode(mode);
+            applyParsedContent(content, mode);
+            setShowDiagramsPanel(false);
+          }}
+          onSaved={(id, name) => {
+            setActiveDiagramId(id || null);
+            setActiveDiagramName(name);
+          }}
+          onClose={() => setShowDiagramsPanel(false)}
+        />
+      )}
     </div>
   );
 }
+
