@@ -157,7 +157,7 @@ export default function App() {
 
   const generatedPrompt = `You are a software architecture documentation assistant.
 
-Analyze the source code provided and generate a single Markdown (.md) file describing the system architecture. The file will be loaded into "Data Flow Cracker" — a visualization app that renders the SAME file across 5 view modes simultaneously. Write node labels so every mode renders correctly.
+Generate a single Markdown (.md) file from the source code below. The file is loaded into "Data Flow Cracker" which renders it across 5 view modes. Node labels must contain the right keywords so every mode renders correctly.
 
 ════════════════════════════════════════
 FILE FORMAT
@@ -167,191 +167,115 @@ FILE FORMAT
 - [id] Label (color, icon)
 
 # Edges
-- sourceId -> targetId : Label
+- sourceId -> targetId : HTTP POST /path | functionCall(param)
 
 # Scenarios
-- Scenario name: nodeId1 -> nodeId2 -> nodeId3
+- Name: nodeId1 -> nodeId2 -> nodeId3
 
 ════════════════════════════════════════
 FIELD RULES
 ════════════════════════════════════════
 
-Node IDs  : lowercase + hyphens only, no spaces  (e.g. order-service)
-Colors    : green | blue | purple | orange | red | gray
-Icons     : Smartphone, Globe, Code, Server, Database, MessageSquare, User,
-            Cloud, Lock, Settings, BarChart, Wifi, Cpu, Activity, Store, Layers
-Edge label: use hybrid format → "HTTP POST /orders | validate(dto)"
-            works for both Mode 3 (protocol) and Mode 5 (function call)
-Scenarios : comma-separated nodeId chains used as animated demo flows
-
-Color guide (recommended)
-  green  = client / entry point      blue   = service / network
-  purple = auth / AI                 orange = logic / processing
-  red    = data / payment            gray   = infrastructure / ORM
+IDs     : lowercase-hyphens  (e.g. order-service)
+Colors  : green · blue · purple · orange · red · gray
+Icons   : Smartphone, Globe, Code, Server, Database, MessageSquare, User,
+          Cloud, Lock, Settings, BarChart, Wifi, Cpu, Activity, Store, Layers
+Edges   : hybrid → "HTTP POST /orders | validate(dto)"  (Mode 3 + Mode 5)
+Colors  : green=entry  blue=service/network  purple=auth/AI
+          orange=logic  red=data/payment  gray=infra/ORM
 
 ════════════════════════════════════════
-VIEW MODE KEYWORD RULES
+NODE LABEL KEYWORDS BY MODE
 ════════════════════════════════════════
 
-The app has 5 modes. Each re-interprets the same nodes differently.
-Write labels so ALL keyword rules below are satisfied at once.
+MODE 1 — System Architecture  (2×2 grid + Cloud▸Data)
+  Hardware  : sensor, iot, actuator, controller, camera, gps, device, embedded, arduino, raspberry
+  Network   : mqtt, gateway, router, broker, bus, socket, queue, message, wifi, zigbee, proxy
+  AI/ML     : openai, gpt, llm, ai, ml, tensorflow, pytorch, inference, prediction, embedding
+  Cloud     : cloud, aws, azure, gcp, lambda, ec2, heroku, vercel, netlify, sagemaker
+  Data ▸(nested in Cloud): database, postgres, mysql, mongo, redis, influx, cassandra, grafana, warehouse
+  Software  : (everything else)
 
-──────────────────────────────────────
-MODE 1 — System Architecture
-Layout: 4 top sections (Hardware | Network | Software | AI/ML) in a 2×2 grid
-        + full-width Cloud section with nested Data section inside it
-──────────────────────────────────────
-Priority order (first match wins):
+MODE 2 — Software Architecture  (2×2 grid + Cloud▸Database)
+  AI/ML     : openai, gpt, llm, ai, ml, tensorflow, pytorch, inference, prediction, embedding
+  Cloud     : cloud, aws, azure, gcp, lambda, ec2, heroku, vercel, netlify, ecs, eks, cloudwatch
+  Database ▸(nested in Cloud): database, postgres, mysql, mongo, redis, prisma, orm, cassandra, storage
+  CI/CD     : ci/cd, devops, jenkins, github actions, gitlab, pipeline, deployment, release
+  Frontend  : frontend, mobile, web, react, swift, kotlin, ios, android, browser, client, portal
+  Backend   : (everything else)
 
-  Hardware → sensor, iot, actuator, controller, camera, gps, lidar, radar,
-             ecu, obd, motor, battery, charger, hardware, device, embedded,
-             microcontroller, arduino, raspberry, gpio
-  Network  → mqtt, gateway, router, broker, bus, socket, vpn, firewall,
-             load balancer, queue, message, network, wifi, zigbee, lora,
-             can bus, protocol, proxy
-  AI/ML    → openai, gpt, llm, ai, machine learning, ml, tensorflow, pytorch,
-             neural, inference, prediction, embedding, mistral, claude, gemini
-  Cloud    → cloud, aws, azure, gcp, lambda, ec2, cloudfront, heroku, vercel,
-             netlify, iot hub, iot core, sagemaker
-  Data     → database, postgres, mysql, mongo, redis, influx, cassandra,
-             warehouse, timeseries, analytics, grafana, dashboard, filesystem
-             ⟶ rendered NESTED inside the Cloud section
-  Software → everything else (api, service, backend, app, auth, etc.)
-
-──────────────────────────────────────
-MODE 2 — Software Architecture with Tech Stack
-Layout: 4 top sections (Frontend | Backend | CI/CD | AI/ML) in a 2×2 grid
-        + full-width Cloud section with nested Database section inside it
-──────────────────────────────────────
-Priority order (first match wins):
-
-  AI/ML    → openai, gpt, llm, ai, machine learning, ml, tensorflow, pytorch,
-             neural, inference, prediction, embedding, mistral, claude, gemini
-  Cloud    → cloud, aws, azure, gcp, lambda, ec2, cloudfront, heroku, vercel,
-             netlify, sagemaker, ecs, eks, fargate, cloudwatch
-  Database → database, postgres, mysql, mongo, redis, prisma, orm, cassandra,
-             cockroach, warehouse, storage
-             ⟶ rendered NESTED inside the Cloud section
-  CI/CD    → ci/cd, devops, jenkins, spinnaker, pagerduty, gradle,
-             github actions, gitlab, deployment, release, pipeline
-  Frontend → frontend, mobile, web, react, swift, kotlin, ios, android,
-             browser, ui, client, portal
-  Backend  → everything else (api, service, server, gateway, auth, etc.)
-
-──────────────────────────────────────
-MODE 3 — Overview Function with Protocol
-Displays the big-picture data flow; edge labels become protocol badges.
-──────────────────────────────────────
-Edge labels should be recognizable protocol / integration names:
-  HTTP POST /orders  |  MQTT publish  |  gRPC  |  WebSocket  |  SQL SELECT
-  JWT validate  |  Kafka topic  |  S3 PUT  |  GraphQL query  |  TCP/IP  |  CoAP
-
-──────────────────────────────────────
-MODE 4 — Data & Schema to Database
-Each node renders as a typed schema table. Template chosen by first match:
-──────────────────────────────────────
-  user / member / account / customer / profile / staff
-      → id PK · email · name · role · created_at
-  order / booking / reservation / purchase
-      → id PK · user_id FK · items · total · status · created_at
-  product / item / inventory / stock / catalogue
-      → id PK · name · price · qty · category_id FK
-  payment / invoice / billing / charge / receipt
-      → id PK · order_id FK · amount · method · paid_at
-  session / token / auth / credential / jwt / login
-      → token PK · user_id FK · expires_at · ip_address
-  notification / alert / message / email / sms / push
-      → id PK · user_id FK · type · content · read
-  log / event / audit / activity / history / track
-      → id PK · type · payload · user_id FK · timestamp
-  report / analytics / metric / stat / dashboard
-      → id PK · name · value · period · recorded_at
-  orm / prisma / sequelize / typeorm / mongoose
-      → model · query · relations · result: Promise<T>
-  api / service / server / backend / gateway / handler
-      → method (HTTP verb) · path · body (JSON) · auth (Bearer)
-  mobile / frontend / web / portal / browser / client / app
-      → user_id · payload (object) · device_id · timestamp (ISO 8601)
-
-Edge labels for Mode 4 → DB operation syntax:
-  INSERT user{id,email,role}  |  SELECT orders WHERE user_id
-  UPDATE inventory SET qty    |  DELETE session WHERE expires < now
-
-──────────────────────────────────────
-MODE 5 — Software Design / Logic (Flowchart)
-Each node renders as a flowchart shape inferred from the label:
-──────────────────────────────────────
-  START (pill)    → user, customer, mobile, client, browser, frontend, portal, app
-                    — NOT if label also contains: service, handler, api, gateway, backend
-  END   (pill)    → response, result, receipt, success, complete, output, done, display
-  DECISION (◇)   → validate, check, guard, verify, authorize, isvalid
-  IO (parallelogram) → database, storage, orm, prisma, repository, repo,
-                       postgres, mysql, mongo, redis, influx, cassandra
-  PROCESS (rect)  → everything else
-
-Edge labels for Mode 5 → function call notation:
-  validate(dto)  |  INSERT(dto)  |  authenticate(creds)  |  HTTP POST(body)
-  ✓ valid  |  → Entity[]  |  notify(event)  |  map(raw)
+MODE 3 — Protocol  →  edge labels = HTTP POST /x | MQTT | gRPC | JWT | SQL | S3 PUT
+MODE 4 — Schema    →  node label keyword selects DB schema template (user/order/payment/etc.)
+MODE 5 — Flowchart →  START: user/mobile/client  END: response/result/success  DECISION: validate/check/guard  IO: database/orm/prisma/repo
 
 ════════════════════════════════════════
-COMPLETE EXAMPLE
+EXAMPLE OUTPUT (follow this style exactly)
 ════════════════════════════════════════
+
+Key technique: pack multiple keywords into each label so the node hits the right section in every mode.
+e.g.  "React web IoT device browser client app"  →  Mode1=Hardware(iot), Mode2=Frontend(browser/client), Mode5=START(client)
 
 \`\`\`
 # Nodes
-- [mobile-client]       Mobile Client App (green, Smartphone)
-- [api-gateway]         API Gateway Service (blue, Server)
-- [auth-service]        Auth Validate Service (purple, Lock)
-- [order-service]       Order Handler Service (orange, Store)
-- [inventory-check]     Inventory Check Guard (orange, BarChart)
-- [payment-service]     Payment Billing Invoice Service (red, Activity)
-- [prisma-orm]          Prisma ORM Repository (gray, Database)
-- [postgres-db]         PostgreSQL Database (red, Database)
-- [mqtt-broker]         MQTT Message Broker (blue, Wifi)
-- [iot-sensor]          IoT Temperature Sensor (orange, Cpu)
-- [notification-service] Notification Alert Service (blue, MessageSquare)
-- [openai-service]      OpenAI GPT Inference Service (purple, Layers)
-- [aws-lambda]          AWS Lambda Cloud Function (blue, Cloud)
-- [response-result]     Response Result Success (green, Activity)
+- [react-web-iot-device-client] React web IoT device browser client app (green, Smartphone)
+- [vite-dev-proxy-network-gateway] HTTP proxy network gateway wifi message queue (blue, Wifi)
+- [express-json-rest-api-server] Express JSON REST API backend server (blue, Server)
+- [jwt-bearer-token-validate-guard] JWT Bearer validate guard middleware (purple, Lock)
+- [jwt-session-token-sign-service] JWT session token sign service (purple, Lock)
+- [user-member-account-auth-service] User member account auth login service (orange, User)
+- [bcrypt-password-hash-service] Password bcrypt hash service (orange, Cpu)
+- [subscription-order-booking-service] Subscription order booking inventory service (orange, Store)
+- [reconciliation-spend-report-handler] Reconciliation report spend REST handler (orange, Activity)
+- [multer-multipart-upload-handler] Multipart HTTP upload handler (orange, Layers)
+- [admin-sky-product-catalogue-service] Admin sky product catalogue stock service (purple, Settings)
+- [prisma-orm-database-repository] Prisma ORM database repository (gray, Database)
+- [postgresql-relational-database] PostgreSQL database SQL (red, Database)
+- [google-cloud-gcs-object-bucket] Google Cloud GCS S3 bucket (red, Cloud)
+- [local-filesystem-disk-storage] Local filesystem disk storage (gray, Server)
+- [gemini-llm-ai-inference-client] Gemini LLM AI inference client (purple, Layers)
+- [vite-npm-ci-cd-build-pipeline] Vite npm CI/CD deployment pipeline (gray, Settings)
+- [firebase-gcp-hosting-cdn] Firebase GCP Cloud Hosting CDN (blue, Cloud)
+- [email-notification-message-gateway] Email notification message gateway (blue, MessageSquare)
+- [spa-json-success-response-output] JSON HTTP 200 response success output (green, Activity)
 
 # Edges
-- mobile-client       -> api-gateway         : HTTP POST /orders | call(request)
-- api-gateway         -> auth-service        : JWT validate | authenticate(token)
-- auth-service        -> order-service       : ✓ valid | authorize(userId)
-- order-service       -> inventory-check     : HTTP GET /stock | validate(qty)
-- inventory-check     -> payment-service     : ✓ available | charge(orderDto)
-- payment-service     -> prisma-orm          : INSERT payment{id,order_id,amount} | save(payment)
-- prisma-orm          -> postgres-db         : SQL INSERT | execute(query)
-- postgres-db         -> prisma-orm          : → Entity | return(row)
-- prisma-orm          -> order-service       : → Order | resolve(entity)
-- order-service       -> notification-service: notify(event) | MQTT publish
-- notification-service-> mqtt-broker         : MQTT publish | emit(event)
-- mqtt-broker         -> iot-sensor          : CoAP SET | trigger(cmd)
-- order-service       -> openai-service      : HTTP POST /v1/chat | predict(context)
-- order-service       -> aws-lambda          : S3 PUT receipt | invoke(payload)
-- order-service       -> response-result     : HTTP 200 OK | return(response)
+- react-web-iot-device-client -> vite-dev-proxy-network-gateway : HTTP GET /api | fetch(apiUrl)
+- vite-dev-proxy-network-gateway -> express-json-rest-api-server : HTTP proxy /api | proxyPass(req)
+- express-json-rest-api-server -> jwt-bearer-token-validate-guard : Bearer JWT Authorization | authMiddleware(req)
+- jwt-bearer-token-validate-guard -> subscription-order-booking-service : JWT validate | validNext()
+- express-json-rest-api-server -> user-member-account-auth-service : HTTP POST /api/auth/login | authenticate(creds)
+- user-member-account-auth-service -> prisma-orm-database-repository : SQL SELECT user | findUnique(email)
+- prisma-orm-database-repository -> postgresql-relational-database : PostgreSQL TCP | query(sql)
+- postgresql-relational-database -> prisma-orm-database-repository : SQL SELECT rows | mapEntity(raw)
+- user-member-account-auth-service -> bcrypt-password-hash-service : bcrypt compare | compareHash(plain,hash)
+- bcrypt-password-hash-service -> user-member-account-auth-service : OK valid | continueSession()
+- user-member-account-auth-service -> jwt-session-token-sign-service : JWT HS256 sign | signToken(userId)
+- jwt-session-token-sign-service -> spa-json-success-response-output : HTTP 200 JSON | jsonResponse(token)
+- subscription-order-booking-service -> prisma-orm-database-repository : SQL INSERT subscription | createSubscription(dto)
+- multer-multipart-upload-handler -> google-cloud-gcs-object-bucket : S3 PUT object | writeObject(buffer)
+- vite-npm-ci-cd-build-pipeline -> firebase-gcp-hosting-cdn : npm deploy release | uploadHosting(dist)
+- firebase-gcp-hosting-cdn -> react-web-iot-device-client : HTTPS GET CDN /index.html | serveSpa()
+- react-web-iot-device-client -> gemini-llm-ai-inference-client : HTTPS POST Generative Language API | generateContent(prompt)
+- gemini-llm-ai-inference-client -> spa-json-success-response-output : HTTP 200 JSON | mapModelToUi(text)
+- reconciliation-spend-report-handler -> email-notification-message-gateway : Webhook POST optional | notifyStakeholders(record)
+- email-notification-message-gateway -> spa-json-success-response-output : SMTP SEND queued | acknowledge()
 
 # Scenarios
-- Happy order flow: mobile-client -> api-gateway -> auth-service -> order-service -> payment-service -> prisma-orm -> postgres-db -> response-result
-- AI recommendation: order-service -> openai-service -> response-result
-- IoT trigger flow: iot-sensor -> mqtt-broker -> order-service -> response-result
-- Auth failure path: mobile-client -> api-gateway -> auth-service
+- Login JWT: react-web-iot-device-client -> vite-dev-proxy-network-gateway -> express-json-rest-api-server -> user-member-account-auth-service -> prisma-orm-database-repository -> postgresql-relational-database -> user-member-account-auth-service -> bcrypt-password-hash-service -> jwt-session-token-sign-service -> spa-json-success-response-output
+- Subscription: react-web-iot-device-client -> vite-dev-proxy-network-gateway -> express-json-rest-api-server -> jwt-bearer-token-validate-guard -> subscription-order-booking-service -> prisma-orm-database-repository -> postgresql-relational-database -> spa-json-success-response-output
+- Gemini AI: react-web-iot-device-client -> gemini-llm-ai-inference-client -> spa-json-success-response-output
+- IoT upload: react-web-iot-device-client -> vite-dev-proxy-network-gateway -> express-json-rest-api-server -> jwt-bearer-token-validate-guard -> multer-multipart-upload-handler -> google-cloud-gcs-object-bucket -> prisma-orm-database-repository -> spa-json-success-response-output
+- Invalid JWT: react-web-iot-device-client -> vite-dev-proxy-network-gateway -> express-json-rest-api-server -> jwt-bearer-token-validate-guard
 \`\`\`
 
 ════════════════════════════════════════
 YOUR TASK
 ════════════════════════════════════════
 
-Analyze the source code below and generate a complete .md file using the format above.
-
-Requirements:
-1. 12–20 nodes covering all layers — at least 1 node per section for Mode 1 & 2
-   (Hardware/IoT · Network/broker · AI/ML · Cloud · Database · core services)
-2. Labels must satisfy keyword rules for all 5 modes simultaneously
-3. Edge labels use hybrid format: "HTTP VERB /path | functionCall(param)"
-4. 3–5 scenarios: main success flow, AI/ML path, IoT/notification path, error path
-5. Colors follow the guide: green=entry, blue=service/network, purple=auth/AI,
-   orange=logic, red=data/payment, gray=infrastructure
+Generate the .md file for the source code below.
+- 12–20 nodes · at least 1 per section in Mode 1 & 2
+- Edge labels: hybrid format "HTTP VERB /path | call(param)"
+- 3–5 scenarios covering main flow, AI/ML, IoT/notification, error path
 
 [PASTE YOUR SOURCE CODE HERE]`;
 
