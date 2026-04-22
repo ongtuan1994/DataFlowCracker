@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --port=7000 --host=0.0.0.0",
     "server": "tsx watch server/index.ts",
+    "start": "tsx server/index.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
     "build": "vite build",
     "preview": "vite preview",
